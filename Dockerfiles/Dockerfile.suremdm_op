@@ -1,0 +1,70 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+
+# Install runtime dependencies + Microsoft ODBC driver 18
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        gnupg \
+        ca-certificates \
+        libgdiplus \
+        libc6 \
+        libicu72 \
+        libssl3 \
+        unixodbc \
+        supervisor && \
+    curl -sSL -O https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb && \
+    curl -sSL https://packages.microsoft.com/keys/microsoft.asc | \
+        gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/mssql-release.list && \
+    apt-get update && \
+    ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
+        msodbcsql18 \
+        mssql-tools18 && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Python venv (keep only if required)
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir aggregate6
+
+RUN ln -s /usr/lib/x86_64-linux-gnu/libgdiplus.so /usr/lib/libgdiplus.so || true
+
+WORKDIR /app
+
+# Copy published outputs
+COPY Microservice1/ ./microservice1/
+COPY Microservice2/ ./microservice2/
+
+# Supervisor configuration
+RUN echo '[supervisord]\n\
+nodaemon=true\n\
+logfile=/dev/null\n\
+loglevel=info\n\
+\n\
+[program:microservice1]\n\
+command=dotnet /app/microservice1/Microservice1.dll\n\
+directory=/app/microservice1\n\
+autorestart=true\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0\n\
+\n\
+[program:microservice2]\n\
+command=dotnet /app/microservice2/Microservice2.dll\n\
+directory=/app/microservice2\n\
+autorestart=true\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0\n\
+' > /etc/supervisor/conf.d/supervisord.conf
+
+# Expose ports (make sure your services use these ports)
+EXPOSE 5001 5002
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
