@@ -29,15 +29,17 @@ RUN apt-get update && \
 # Python venv (keep only if required)
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
 RUN pip install --no-cache-dir aggregate6
 
 RUN ln -s /usr/lib/x86_64-linux-gnu/libgdiplus.so /usr/lib/libgdiplus.so || true
 
 WORKDIR /app
 
-# Copy published outputs
-COPY Microservice1/ ./microservice1/
-COPY Microservice2/ ./microservice2/
+# Copy published outputs from Out folder
+COPY Out/Microservice1/ ./microservice1/
+COPY Out/Microservice2/ ./microservice2/
+COPY Out/Microservice3/ ./microservice3/
 
 # Supervisor configuration
 RUN echo '[supervisord]\n\
@@ -62,9 +64,18 @@ stdout_logfile=/dev/stdout\n\
 stdout_logfile_maxbytes=0\n\
 stderr_logfile=/dev/stderr\n\
 stderr_logfile_maxbytes=0\n\
+\n\
+[program:microservice3]\n\
+command=dotnet /app/microservice3/Microservice3.dll\n\
+directory=/app/microservice3\n\
+autorestart=true\n\
+stdout_logfile=/dev/stdout\n\
+stdout_logfile_maxbytes=0\n\
+stderr_logfile=/dev/stderr\n\
+stderr_logfile_maxbytes=0\n\
 ' > /etc/supervisor/conf.d/supervisord.conf
 
-# Expose ports (make sure your services use these ports)
-EXPOSE 5001 5002
+# Expose ports (adjust if needed)
+EXPOSE 5001 5002 5003
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
