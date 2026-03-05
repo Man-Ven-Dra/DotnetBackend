@@ -36,10 +36,10 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libgdiplus.so /usr/lib/libgdiplus.so || true
 
 WORKDIR /app
 
-# Copy published outputs from Out folder
-COPY Out/Microservice1/ ./microservice1/
-COPY Out/Microservice2/ ./microservice2/
-COPY Out/Microservice3/ ./microservice3/
+# Copy published outputs (they are directly in the build context root)
+COPY Microservice1/ ./microservice1/
+COPY Microservice2/ ./microservice2/
+COPY Microservice3/ ./microservice3/
 
 # Supervisor configuration
 RUN echo '[supervisord]\n\
